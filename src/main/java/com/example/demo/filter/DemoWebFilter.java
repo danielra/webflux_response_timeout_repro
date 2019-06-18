@@ -2,6 +2,8 @@ package com.example.demo.filter;
 
 import java.time.Duration;
 import java.util.concurrent.TimeoutException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpRequest;
@@ -21,12 +23,16 @@ public class DemoWebFilter implements WebFilter {
 
     static final HttpStatus RESPONSE_TIMEOUT_HTTP_STATUS = HttpStatus.INTERNAL_SERVER_ERROR;
 
+    static final Logger logger = LoggerFactory.getLogger(DemoWebFilter.class);
+
     @Override
     public Mono<Void> filter(final ServerWebExchange serverWebExchange, final WebFilterChain webFilterChain) {
 
         final String path = serverWebExchange.getRequest().getURI().getPath();
 
         final long requestStartTime = System.nanoTime();
+
+        logger.info(String.format("%sIncoming request observed.", serverWebExchange.getLogPrefix()));
 
         return webFilterChain.filter(serverWebExchange)
             .timeout(TIMEOUT_DURATION)
@@ -41,11 +47,11 @@ public class DemoWebFilter implements WebFilter {
         final String responseStatusMessage = responseStatusCodeAlreadyCommitted ? String.format("Response status code was already committed: '%s'.", serverWebExchange.getResponse().getStatusCode()) : String.format("Set response status code to '%s'.", RESPONSE_TIMEOUT_HTTP_STATUS);
         final long durationMs = Duration.ofNanos(System.nanoTime() - requestStartTime).toMillis();
 
-        logResponseTimeoutDetails(durationMs, requestMethod, requestUri, responseStatusMessage);
+        logResponseTimeoutDetails(durationMs, requestMethod, requestUri, responseStatusMessage, serverWebExchange.getLogPrefix());
         return Mono.empty();
     }
 
-    private void logResponseTimeoutDetails(final long durationNanoseconds, final String requestMethod, final String requestUri, final String responseStatusMessage) {
-        System.out.println(String.format("Response timeout after %s milliseconds for %s request with uri '%s'. %s", durationNanoseconds, requestMethod, requestUri, responseStatusMessage));
+    private void logResponseTimeoutDetails(final long durationNanoseconds, final String requestMethod, final String requestUri, final String responseStatusMessage, final String requestLogPrefix) {
+        logger.error(String.format("%sResponse timeout after %s milliseconds for %s request with uri '%s'. %s", requestLogPrefix, durationNanoseconds, requestMethod, requestUri, responseStatusMessage));
     }
 }
